@@ -1,11 +1,19 @@
 # 🛡️ Sentnel — Guardrails for AI Tool Execution
 
-> **Block dangerous AI actions before they run.**
-> Add real-time security to Claude Code in **one command**.
+**Real-time security for AI coding agents.**
+
+> Sentnel intercepts every tool call **before execution** to enforce safety policies.
+> Currently supports Claude Code via `PreToolUse` hooks.
 
 ---
 
 ## ⚡ Why Sentnel?
+
+AI coding agents can:
+
+- execute shell commands
+- read sensitive files
+- make network calls
 
 AI coding agents are powerful — but they can:
 
