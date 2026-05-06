@@ -296,11 +296,9 @@ sentnel/
 
 ## ⚡ Roadmap
 
-* [ ] MCP proxy (team-wide enforcement)
+* [ ] Cursor extension
 * [ ] VS Code extension
-* [ ] Policy management UI
-* [ ] Cloud audit dashboard
-* [ ] SOC2-ready logging
+* [ ] Antigravity extension
 
 ---
 
