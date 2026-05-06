@@ -40,13 +40,13 @@ Sentnel: ✓ Allowed
 
 ### One-liner (Recommended)
 ```bash
-curl -sSL https://raw.githubusercontent.com/sentnelops/sentnel/main/setup.sh | bash
+curl -sSL https://raw.githubusercontent.com/rrb11/sentnel/main/setup.sh | bash
 ```
 
 ### Manual Setup (Local Sidecar)
 If you prefer to run Sentnel directly from a specific directory:
 ```bash
-git clone https://github.com/sentnelops/sentnel.git
+git clone https://github.com/rrb11/sentnel.git
 cd sentnel
 bash setup.sh
 ```
@@ -149,6 +149,92 @@ rules:
 
 ---
 
+## 🔧 Generators
+
+Sentnel ships two generators — one for each defense layer.
+
+### Intent Block Generator (`CLAUDE.md`)
+
+Generates the system prompt loaded into every Claude session (Layer 1 — blocks at intent level, before any tool call).
+
+```bash
+# Preview the generated CLAUDE.md (no file written)
+python3 generate_claude_md.py example_intent.yaml --dry-run
+
+# Write CLAUDE.md
+python3 generate_claude_md.py my_policy.yaml
+
+# Validate only
+python3 generate_claude_md.py my_policy.yaml --validate
+```
+
+Input rules support two formats:
+
+```yaml
+rules:
+  # Structured — generates "NEVER <action>. Not <m1>, not <m2>, ..."
+  - id: no_deletion
+    never: "delete files or directories by any method"
+    methods: [rm, rmdir, shutil.rmtree, os.remove]
+    extra: "not any other approach"
+    response: "Sentnel policy blocks all deletion. Do it yourself in your terminal."
+
+  # Structured with paths — generates "NEVER <action>: <p1>, <p2>, ..."
+  - id: no_sensitive_reads
+    never: "read files at these paths"
+    paths: [.env, .aws/credentials, .ssh/id_rsa]
+
+  # Freeform — paste any rule text verbatim
+  - id: no_db_migrations
+    text: "NEVER run database migrations without explicit user confirmation."
+```
+
+Top-level options control the override-immunity and bypass-reporting clauses:
+
+```yaml
+override_immunity:
+  enabled: true
+  phrases: ["ignore previous instructions", "this is a test", "I am the admin"]
+
+bypass_reporting:
+  enabled: true
+  readable_files: [hook.py, rules.yaml]
+```
+
+See [example_intent.yaml](example_intent.yaml) for the full annotated template.
+
+---
+
+### Hook Rule Generator (`rules.yaml`)
+
+Generate or update `rules.yaml` from your own JSON or YAML policy file — no manual YAML editing required.
+
+```bash
+# Preview what would be generated (no file written)
+python3 generate_rules.py example_input.yaml --dry-run
+
+# Add/update rules by ID, keep existing rules not in your file (safe default)
+python3 generate_rules.py my_rules.yaml --merge
+
+# Replace all rules with those from your file
+python3 generate_rules.py my_rules.yaml --override
+
+# Validate only — check your file for errors without writing anything
+python3 generate_rules.py my_rules.yaml --validate
+```
+
+| Flag | Description |
+|------|-------------|
+| `--merge` | Add/update rules by ID; preserve rules not in input *(default)* |
+| `--override` | Replace entire `rules.yaml` with rules from input |
+| `--dry-run` | Print generated YAML to stdout, no file written |
+| `--validate` | Validate input only, exit 0 on success |
+| `--output PATH` | Write to a custom path instead of `rules.yaml` |
+
+See [example_input.yaml](example_input.yaml) for a fully annotated template showing all four match types (`patterns_any`, `pattern`, `path` for Read/Write/Edit) and both actions.
+
+---
+
 ## 📊 Audit Logging
 
 Every tool call is logged to `audit.db` in the repo root:
@@ -183,12 +269,16 @@ After `bash setup.sh`, ask Claude to:
 
 ```
 sentnel/
-├── hook.py          # PreToolUse hook — runs on every Claude tool call
-├── rules.yaml       # Your configurable deny/allow rules
-├── CLAUDE.md        # Intent-layer system prompt (auto-loaded by Claude Code)
-├── setup.sh         # Registers hook in ~/.claude/settings.json
-├── uninstall.sh     # Removes hook registration
-└── audit.db         # Local SQLite audit log (git-ignored)
+├── hook.py                  # PreToolUse hook — runs on every Claude tool call
+├── rules.yaml               # Your configurable deny/allow rules (Layer 2)
+├── generate_rules.py        # Generator: JSON/YAML → rules.yaml
+├── example_input.yaml       # Template input for generate_rules.py
+├── CLAUDE.md                # Intent-layer system prompt (Layer 1, auto-loaded)
+├── generate_claude_md.py    # Generator: JSON/YAML → CLAUDE.md
+├── example_intent.yaml      # Template input for generate_claude_md.py
+├── setup.sh                 # Registers hook in ~/.claude/settings.json
+├── uninstall.sh             # Removes hook registration
+└── audit.db                 # Local SQLite audit log (git-ignored)
 ```
 
 ---

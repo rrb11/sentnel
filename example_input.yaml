@@ -1,0 +1,115 @@
+# example_input.yaml — Sentnel Rule Generator Input Template
+#
+# This file demonstrates all supported rule types. Copy and modify it
+# to create your own policy set, then run:
+#
+#   python3 generate_rules.py example_input.yaml --dry-run     # preview
+#   python3 generate_rules.py example_input.yaml --merge       # add/update rules
+#   python3 generate_rules.py example_input.yaml --override    # replace all rules
+#
+# ─── Schema Reference ────────────────────────────────────────────────────────
+#
+#   id              Unique rule identifier. Letters, digits, underscores, hyphens.
+#                   Must NOT start with "static_" (reserved for hardcoded rules).
+#
+#   match.tool      Claude Code tool this rule applies to:
+#                     Bash      → command-line execution
+#                     Read      → file reads
+#                     Write     → file writes
+#                     Edit      → file edits
+#                     MultiEdit → multi-file edits
+#
+#   match field     Exactly ONE of:
+#                     patterns_any  list of substrings (OR logic) — for Bash commands
+#                     pattern       single substring             — for Bash commands
+#                     path          list of path substrings      — for Read/Write/Edit
+#
+#                   Matching is case-insensitive substring search.
+#
+#   action          "deny"  → block the tool call (Claude sees an error message)
+#                   "allow" → explicitly allow (rarely needed; useful to short-circuit
+#                             a later deny rule for a specific pattern)
+#
+# ─────────────────────────────────────────────────────────────────────────────
+
+rules:
+
+  # ── Bash: block via patterns_any (OR logic) ──────────────────────────────
+  # Use when you want to block any of several command substrings.
+  - id: block_terraform_destroy
+    match:
+      tool: Bash
+      patterns_any:
+        - "terraform destroy"
+        - "tf destroy"
+        - "terraform apply -destroy"
+    action: deny
+
+  # ── Bash: block via single pattern ───────────────────────────────────────
+  # Use when one pattern is sufficient.
+  - id: block_docker_prune
+    match:
+      tool: Bash
+      pattern: "docker system prune"
+    action: deny
+
+  # ── Read: block sensitive file paths ─────────────────────────────────────
+  # Use when you want to prevent reading files at specific paths.
+  # The hook checks if any list entry is a substring of the actual file path.
+  - id: block_secrets_reads
+    match:
+      tool: Read
+      path:
+        - "secrets.toml"
+        - ".vault-token"
+        - "terraform.tfvars"
+        - ".npmrc"
+    action: deny
+
+  # ── Write: block writes to protected paths ────────────────────────────────
+  # Use when you want to prevent overwriting critical configuration files.
+  - id: block_ci_config_writes
+    match:
+      tool: Write
+      path:
+        - ".github/workflows"
+        - ".circleci/config.yml"
+        - "Dockerfile"
+        - "docker-compose.yml"
+    action: deny
+
+  # ── Edit: block edits to the same protected paths ────────────────────────
+  # Write and Edit are separate tools — add both if you want full coverage.
+  - id: block_ci_config_edits
+    match:
+      tool: Edit
+      path:
+        - ".github/workflows"
+        - ".circleci/config.yml"
+        - "Dockerfile"
+        - "docker-compose.yml"
+    action: deny
+
+  # ── Bash: block cloud destructive operations ──────────────────────────────
+  - id: block_cloud_destroy
+    match:
+      tool: Bash
+      patterns_any:
+        - "aws s3 rb"
+        - "aws ec2 terminate"
+        - "gcloud sql instances delete"
+        - "az group delete"
+        - "kubectl delete namespace"
+    action: deny
+
+  # ── Bash: block package registry publish ─────────────────────────────────
+  - id: block_publish
+    match:
+      tool: Bash
+      patterns_any:
+        - "npm publish"
+        - "yarn publish"
+        - "pip upload"
+        - "twine upload"
+        - "cargo publish"
+    action: deny

@@ -20,7 +20,7 @@ else
   echo "  🛡  Sentnel v$VERSION — One-Liner Install"
   if [ ! -d "$INSTALL_DIR/.git" ]; then
     echo "  Cloning Sentnel to $INSTALL_DIR..."
-    git clone https://github.com/sentnelops/sentnel.git "$INSTALL_DIR" --quiet || fail "Clone failed"
+    git clone https://github.com/rrb11/sentnel.git "$INSTALL_DIR" --quiet || fail "Clone failed"
   else
     echo "  Updating Sentnel in $INSTALL_DIR..."
     (cd "$INSTALL_DIR" && git pull --quiet)
