@@ -237,10 +237,10 @@ See [example_input.yaml](example_input.yaml) for a fully annotated template show
 
 ## 📊 Audit Logging
 
-Every tool call is logged to `audit.db` in the repo root:
+Every tool call is logged to `~/.sentnel/audit.db` (persists across installs, never committed to the repo):
 
 ```bash
-sqlite3 ./audit.db "SELECT ts, tool, decision, reason FROM events ORDER BY ts DESC LIMIT 20;"
+sqlite3 ~/.sentnel/audit.db "SELECT ts, tool, decision, reason FROM events ORDER BY ts DESC LIMIT 20;"
 ```
 
 ```
@@ -278,7 +278,8 @@ sentnel/
 ├── example_intent.yaml      # Template input for generate_claude_md.py
 ├── setup.sh                 # Registers hook in ~/.claude/settings.json
 ├── uninstall.sh             # Removes hook registration
-└── audit.db                 # Local SQLite audit log (git-ignored)
+├── requirements.txt         # Python dependencies (pyyaml)
+└── audit.db*                # *Stored in ~/.sentnel/audit.db, not the repo
 ```
 
 ---
@@ -291,6 +292,37 @@ sentnel/
 * ✅ **Local-first** — runs entirely on your machine, no network calls
 * ✅ **Policy-as-code** — rules.yaml is versionable and auditable
 * ✅ **Idempotent install** — running setup.sh twice is safe
+
+---
+
+## ⚠️ Known Limitations
+
+Sentnel uses **case-insensitive substring matching** on command strings. This is fast and transparent, but has inherent limits that users should understand:
+
+**String matching can be evaded by a sufficiently motivated model:**
+
+```python
+# Blocked — literal string matches static_os_remove
+os.remove("file.txt")
+
+# Not blocked — dynamic attribute access bypasses substring matching
+getattr(os, "rem" + "ove")("file.txt")
+getattr(__import__("os"), "remove")("file.txt")
+```
+
+**What this means in practice:**
+
+* Sentnel reliably blocks *accidental* dangerous actions and straightforward attempts
+* It is not designed to stop a model that has been specifically prompted to defeat it
+* The `CLAUDE.md` intent layer provides a second barrier, but a compromised or jailbroken model can ignore system prompts
+
+**Mitigations already in place:**
+
+1. `CLAUDE.md` blocks at intent level — the model refuses to form the command in the first place
+2. Static rules are hardcoded in `hook.py` and survive `rules.yaml` tampering
+3. Override-immunity phrasing in `CLAUDE.md` guards against social-engineering prompts
+
+**Recommended posture:** Treat Sentnel as a strong defence-in-depth layer, not as an absolute sandbox. For production environments requiring guaranteed isolation, run the model inside an OS-level sandbox (Docker, VM, or a dedicated CI runner with no write access to sensitive paths).
 
 ---
 

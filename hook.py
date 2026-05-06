@@ -1,7 +1,9 @@
 import json, sys, yaml, time, sqlite3, os
 
 RULES_FILE = os.path.join(os.path.dirname(__file__), "rules.yaml")
-DB_FILE = os.path.join(os.path.dirname(__file__), "audit.db")
+_SENTNEL_DIR = os.path.expanduser("~/.sentnel")
+DB_FILE = os.path.join(_SENTNEL_DIR, "audit.db")
+DEBUG = os.environ.get("SENTNEL_DEBUG") == "1"
 
 STATIC_RULES = [
     # Deletion — all known methods
@@ -28,6 +30,7 @@ def load_rules():
         return yaml.safe_load(f)["rules"]
 
 def log_event(event, decision, reason):
+    os.makedirs(_SENTNEL_DIR, exist_ok=True)
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute("""
@@ -85,7 +88,8 @@ def evaluate(event):
     return "allow", None
 
 def main():
-    print("🛡 Sentnel hook triggered", file=sys.stderr)
+    if DEBUG:
+        print("🛡 Sentnel hook triggered", file=sys.stderr)
     try:
         event = json.loads(sys.stdin.read())
     except Exception as e:
@@ -93,12 +97,14 @@ def main():
         print(json.dumps({"decision": "block", "reason": "invalid_input"}))
         sys.exit(2)
 
-    print(f"Sentnel: tool={event.get('tool_name')} cmd={str(event.get('tool_input',''))[:60]}", file=sys.stderr)
+    if DEBUG:
+        print(f"Sentnel: tool={event.get('tool_name')} cmd={str(event.get('tool_input',''))[:60]}", file=sys.stderr)
 
     decision, reason = evaluate(event)
     log_event(event, decision, reason)
 
-    print(f"Sentnel: decision={decision} rule={reason}", file=sys.stderr)
+    if DEBUG:
+        print(f"Sentnel: decision={decision} rule={reason}", file=sys.stderr)
 
     if decision == "deny":
         print(json.dumps({

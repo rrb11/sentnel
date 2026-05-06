@@ -29,10 +29,14 @@ else
 fi
 
 HOOK_CMD="python3 $REPO_DIR/hook.py"
+AUDIT_DB="$HOME/.sentnel/audit.db"
 
 echo "  ─────────────────────────────────────"
 echo "  Repo: $REPO_DIR"
 echo ""
+
+# ── Ensure ~/.sentnel dir exists (for audit DB) ───────────
+mkdir -p "$HOME/.sentnel"
 
 # ── Step 1: Verify required files exist ───────────────────
 for FILE in hook.py rules.yaml; do
@@ -40,18 +44,15 @@ for FILE in hook.py rules.yaml; do
 done
 ok "Source files verified"
 
-# ── Step 2: Python dependency ─────────────────────────────
-pip3 install pyyaml --quiet --break-system-packages 2>/dev/null \
-  || pip3 install pyyaml --quiet \
-  || fail "pip3 install pyyaml failed — install Python 3 and pip first"
+# ── Step 2: Python dependencies ───────────────────────────
+pip3 install -r "$REPO_DIR/requirements.txt" --quiet --break-system-packages 2>/dev/null \
+  || pip3 install -r "$REPO_DIR/requirements.txt" --quiet \
+  || fail "pip3 install failed — install Python 3 and pip first"
 ok "Dependencies ready"
 
-# ── Step 3: Init local audit DB + .gitignore ──────────────
-touch "$REPO_DIR/audit.db"
-if ! grep -q "^audit\.db$" "$REPO_DIR/.gitignore" 2>/dev/null; then
-  echo "audit.db" >> "$REPO_DIR/.gitignore"
-fi
-ok "Audit DB: $REPO_DIR/audit.db"
+# ── Step 3: Init audit DB ─────────────────────────────────
+touch "$HOME/.sentnel/audit.db"
+ok "Audit DB: $AUDIT_DB"
 
 # ── Step 4: Register hook in ~/.claude/settings.json ──────
 mkdir -p "$HOME/.claude"
@@ -136,7 +137,7 @@ echo "  ✅ Sentnel sidecar active!"
 echo ""
 echo "  Hook  → $REPO_DIR/hook.py"
 echo "  Rules → $REPO_DIR/rules.yaml"
-echo "  Audit → $REPO_DIR/audit.db"
+echo "  Audit → $AUDIT_DB"
 echo "  Config→ $CLAUDE_CONFIG"
 echo ""
 echo "  Edit rules.yaml to customise — changes apply on next Claude tool call."
